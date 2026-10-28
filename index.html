@@ -446,7 +446,6 @@ function saveNewPin() {
   alert('تم تغيير الرمز السري بنجاح!');
 }
 
-// دالة تسجيل الأحداث في سجل التدقيق والمتابعة الرقمي
 function logAudit(actionType, details) {
   if (!appData.Audit) appData.Audit = [];
   appData.Audit.unshift({
@@ -455,10 +454,10 @@ function logAudit(actionType, details) {
     type: actionType,
     details: details
   });
-  // حفظ محلي في المتصفح لضمان ثبات السجل
   try { localStorage.setItem('app_audit_log', JSON.stringify(appData.Audit)); } catch(e){}
 }
 
+/* ---------- دالة الجلب الموحدة والمصححة لعدم إعطاء أخطاء ---------- */
 async function fetchData() {
   try {
     const res = await fetch(`${SCRIPT_URL}?action=getData`);
@@ -467,28 +466,40 @@ async function fetchData() {
     appData.Articles = d.Articles || [];
     appData.Schools = d.Schools || [];
     appData.Movements = d.Movements || [];
-    // استرجاع السجل من التخزين المحلي إن وجد
     try {
       const localAudit = localStorage.getItem('app_audit_log');
       appData.Audit = localAudit ? JSON.parse(localAudit) : (d.Audit || []);
     } catch(e) { appData.Audit = d.Audit || []; }
     loaded = true;
     return true;
-  } catch (e) { console.error(e); return false; }
+  } catch (e) { 
+    console.error("خطأ جلب البيانات:", e); 
+    return false; 
+  }
 }
+
 async function loadCloudData() {
   updateSync('syncing');
   const ok = await fetchData();
   if (ok) renderAll();
   updateSync(ok ? 'synced' : 'error');
 }
+
+/* ---------- دالة الحفظ الموحدة والمصححة ---------- */
 async function saveSheet(name) {
   try {
-    const res = await fetch(SCRIPT_URL, { method:'POST', body: JSON.stringify({ action:'saveData', sheet:name, rows:appData[name] }) });
+    const res = await fetch(SCRIPT_URL, { 
+      method: 'POST', 
+      body: JSON.stringify({ action: 'saveData', sheet: name, rows: appData[name] }) 
+    });
     const r = await res.json();
     return r.status === 'success';
-  } catch (e) { console.error(e); return false; }
+  } catch (e) { 
+    console.error("خطأ الحفظ:", e); 
+    return false; 
+  }
 }
+
 async function commit(sheets, fn) {
   if (isSaving) return false;
   if (!loaded) { alert('لم يتم تحميل البيانات من السحابة بعد.'); return false; }
@@ -507,6 +518,7 @@ async function commit(sheets, fn) {
     return true;
   } finally { isSaving = false; setBtns(false); }
 }
+
 function setBtns(dis) { ['btn-save','btn-save-print'].forEach(i => { const b=$(i); if (b) b.disabled = dis; }); }
 function updateSync(st) {
   const t = $('sync-text'), b = $('sync-status'), d = dict[currentLang];
